@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qo‘l bilan boshqariladigan shashka</title>
+  <style>
+    :root {
+      --bg: #f4efe5;
+      --panel: #ffffff;
+      --board-light: #f0d9b5;
+      --board-dark: #b58863;
+      --text: #1f2328;
+      --muted: #57606a;
+      --accent: #0a7cff;
+      --danger: #c92c2c;
+      --ok: #1f883d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 25% 10%, #fbf9f5 0%, var(--bg) 52%, #e9e1d4 100%);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .start-screen {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    .start-card {
+      width: min(92vw, 560px);
+      background: var(--panel);
+      border-radius: 14px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
+      padding: 22px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .start-title {
+      margin: 0;
+      font-size: clamp(26px, 4vw, 34px);
+      letter-spacing: 0.3px;
+    }
+
+    .start-help {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .server-note {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 10px;
+      line-height: 1.45;
+    }
+
+    .enable-btn {
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+
+    .enable-btn:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    .error {
+      min-height: 22px;
+      font-size: 14px;
+      color: var(--danger);
+      line-height: 1.4;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .layout {
+      width: min(100%, 1050px);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      align-items: start;
+      justify-items: center;
+    }
+
+    .board-panel {
+      width: min(100%, 760px);
+      background: rgba(255, 255, 255, 0.82);
+      border-radius: 14px;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+      padding: 12px;
+      backdrop-filter: blur(2px);
+    }
+
+    .status-line {
+      min-height: 24px;
+      font-weight: 600;
+      font-size: 15px;
+      margin: 0 0 10px 0;
+    }
+
+    .board-frame {
+      width: 100%;
+      max-width: 700px;
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .board-wrap {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      position: relative;
+      margin: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 3px solid #583f2d;
+      background: #2f241c;
+    }
+
+    #board {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      user-select: none;
+      touch-action: none;
+    }
+
+    .square {
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+
+    .square.light {
+      background: var(--board-light);
+    }
+
+    .square.dark {
+      background: var(--board-dark);
+    }
+
+    .square.hovered {
+      box-shadow: inset 0 0 0 3px rgba(10, 124, 255, 0.65);
+    }
+
+    .square.grabbed-origin {
+      box-shadow: inset 0 0 0 4px rgba(255, 180, 0, 0.95);
+    }
+
+    .square.selectable::before {
+      content: "";
+      position: absolute;
+      width: 70%;
+      height: 70%;
+      border-radius: 50%;
+      border: 3px solid rgba(22, 88, 170, 0.45);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .square.forced-capture::before {
+      content: "";
+      position: absolute;
+      width: 72%;
+      height: 72%;
+      border-radius: 50%;
+      border: 4px solid rgba(201, 44, 44, 0.92);
+      box-shadow: inset 0 0 18px rgba(201, 44, 44, 0.45), 0 0 18px rgba(201, 44, 44, 0.25);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .square.chain-piece {
+      box-shadow:
+        inset 0 0 0 4px rgba(255, 180, 0, 0.95),
+        inset 0 0 28px rgba(255, 180, 0, 0.36);
+    }
+
+    .square.valid-target::after {
+      content: "";
+      width: 24%;
+      height: 24%;
+      border-radius: 50%;
+      background: rgba(10, 124, 255, 0.58);
+      position: absolute;
+      z-index: 1;
+    }
+
+    .piece {
+      width: 72%;
+      height: 72%;
+      border-radius: 50%;
+      pointer-events: none;
+      position: relative;
+      z-index: 2;
+      display: none;
+      box-shadow:
+        inset 0 2px 6px rgba(255, 255, 255, 0.24),
+        inset 0 -6px 10px rgba(0, 0, 0, 0.24),
+        0 2px 4px rgba(0, 0, 0, 0.28);
+    }
+
+    .piece.has-piece {
+      display: grid;
+      place-items: center;
+    }
+
+    .piece.white {
+      background: radial-gradient(circle at 35% 28%, #fffdf8 0%, #f3ede4 52%, #d9cfc0 100%);
+      border: 2px solid #c9bea9;
+      color: #322b20;
+    }
+
+    .piece.black {
+      background: radial-gradient(circle at 30% 24%, #6e747c 0%, #2b3139 58%, #151a1f 100%);
+      border: 2px solid #0e1216;
+      color: #f3f6fa;
+    }
+
+    .piece.king {
+      box-shadow:
+        inset 0 2px 8px rgba(255, 255, 255, 0.26),
+        inset 0 -6px 10px rgba(0, 0, 0, 0.3),
+        0 2px 6px rgba(0, 0, 0, 0.35),
+        0 0 0 2px rgba(255, 215, 0, 0.38);
+    }
+
+    .piece.king::before {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 215, 0, 0.88);
+      pointer-events: none;
+    }
+
+    .piece.king::after {
+      content: "D";
+      font-size: clamp(12px, 1.8vw, 19px);
+      font-weight: 800;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+
+    .board-coords {
+      position: absolute;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.82;
+      pointer-events: none;
+      user-select: none;
+      z-index: 2;
+      color: #4a3c2f;
+    }
+
+    .board-coords-bottom {
+      left: 0;
+      top: calc(100% + 6px);
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+    }
+
+    .board-coords-left {
+      top: 0;
+      right: calc(100% + 8px);
+      height: 100%;
+      width: 14px;
+      display: grid;
+      grid-template-rows: repeat(8, 1fr);
+    }
+
+    .board-coords span {
+      display: grid;
+      place-items: center;
+    }
+
+    #cursor {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      margin-left: -11px;
+      margin-top: -11px;
+      border-radius: 50%;
+      border: 2px solid #101820;
+      background: rgba(255, 255, 255, 0.45);
+      box-shadow: 0 0 0 3px rgba(10, 124, 255, 0.24);
+      pointer-events: none;
+      z-index: 30;
+      transition: opacity 0.2s ease;
+    }
+
+    #cursor.pinch {
+      transform: scale(0.85);
+      background: rgba(31, 136, 61, 0.45);
+      box-shadow: 0 0 0 4px rgba(31, 136, 61, 0.28);
+    }
+
+    #cursor.faded {
+      opacity: 0.35;
+    }
+
+    #dragPiece {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -50%);
+      width: clamp(40px, 7vw, 64px);
+      height: clamp(40px, 7vw, 64px);
+      pointer-events: none;
+      z-index: 40;
+      display: none;
+    }
+
+    .board-wrap.game-over::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(18, 22, 28, 0.34);
+      z-index: 45;
+      pointer-events: none;
+    }
+
+    .game-over-banner {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(88%, 430px);
+      padding: 16px 18px;
+      border-radius: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.62);
+      background: rgba(24, 31, 40, 0.9);
+      color: #ffffff;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.45;
+      white-space: pre-line;
+      z-index: 55;
+      pointer-events: none;
+    }
+
+    .debug-panel {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      width: min(300px, calc(100vw - 28px));
+      max-height: min(42vh, 360px);
+      overflow: auto;
+      z-index: 58;
+    }
+
+    .debug-title {
+      margin: 0;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    #debugText {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: "Consolas", "Menlo", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #24292f;
+      min-height: 220px;
+    }
+
+    .turn-text {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .video-overlay {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      width: min(28vw, 260px);
+      aspect-ratio: 4 / 3;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #111;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+      z-index: 60;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    #webcam,
+    #handCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    @media (max-width: 900px) {
+      .debug-panel {
+        width: min(240px, calc(100vw - 24px));
+        max-height: min(38vh, 300px);
+        right: 12px;
+        bottom: 12px;
+      }
+
+      .video-overlay {
+        width: min(36vw, 220px);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .debug-panel {
+        width: min(210px, calc(100vw - 20px));
+        max-height: min(34vh, 260px);
+        right: 10px;
+        bottom: 10px;
+        padding: 10px;
+      }
+
+      #debugText {
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section id="startScreen" class="start-screen">
+    <div class="start-card">
+      <h1 class="start-title">Qo‘l bilan boshqariladigan shashka</h1>
+      <p class="start-help">Kursor sifatida ko‘rsatkich barmoq uchidan foydalaning. Ushlash uchun barmoqni chimching, tashlash uchun qo‘yib yuboring. Majburiy urish va ketma-ket urish qoidalari yoqilgan.</p>
+      <p class="server-note">Mahalliy server orqali ishga tushiring: <code>python -m http.server 8000</code><br/><code>http://localhost:8000</code> orqali oching (veb-kamera ko‘pincha HTTPS yoki localhost talab qiladi).</p>
+      <button id="enableCameraBtn" class="enable-btn" type="button">Kamerani yoqish</button>
+      <div id="startError" class="error"></div>
+    </div>
+  </section>
+
+  <main id="gameScreen" class="app hidden">
+    <div class="layout">
+      <section class="board-panel">
+        <p id="statusLine" class="status-line">Kamera: O‘CHIQLI | Qo‘l: aniqlanmadi | Chimchish: YO‘Q | Holat: Boshlashga tayyor</p>
+        <div class="board-frame">
+          <div class="board-wrap" id="boardWrap">
+            <div id="board" aria-label="Shashka taxtasi"></div>
+            <div id="cursor"></div>
+            <div id="dragPiece" class="piece" aria-hidden="true"></div>
+            <div id="gameOverBanner" class="game-over-banner hidden" aria-live="polite"></div>
+          </div>
+          <div id="coordsBottom" class="board-coords board-coords-bottom" aria-hidden="true"></div>
+          <div id="coordsLeft" class="board-coords board-coords-left" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <aside class="debug-panel">
+        <p class="debug-title">Nosozlik paneli</p>
+        <p id="turnText" class="turn-text">Navbat: Oq</p>
+        <pre id="debugText">Kamera kutilmoqda...</pre>
+      </aside>
+    </div>
+  </main>
+
+  <div id="videoOverlay" class="video-overlay hidden">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="handCanvas" width="640" height="480"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+  <script>
+    (() => {
+      const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
+      const ALL_DIAGONALS = [
+        [-1, -1],
+        [-1, 1],
+        [1, -1],
+        [1, 1]
+      ];
+
+      const PINCH_ON = 0.035;
+      const PINCH_OFF = 0.050;
+      const BASE_SMOOTH_ALPHA = 0.4;
+      const FAST_SMOOTH_ALPHA = 0.68;
+      const FAST_MOVE_PX = 18;
+      const DEADZONE_PX = 0.9;
+      const INPUT_CENTER_X = 0.5;
+      const INPUT_CENTER_Y = 0.5;
+      const INPUT_RANGE_X = 0.62;
+      const INPUT_RANGE_Y = 0.62;
+
+      const startScreen = document.getElementById("startScreen");
+      const gameScreen = document.getElementById("gameScreen");
+      const videoOverlay = document.getElementById("videoOverlay");
+      const enableCameraBtn = document.getElementById("enableCameraBtn");
+      const startError = document.getElementById("startError");
+
+      const boardWrap = document.getElementById("boardWrap");
+      const boardEl = document.getElementById("board");
+      const coordsBottomEl = document.getElementById("coordsBottom");
+      const coordsLeftEl = document.getElementById("coordsLeft");
+      const cursorEl = document.getElementById("cursor");
+      const dragPieceEl = document.getElementById("dragPiece");
+      const gameOverBannerEl = document.getElementById("gameOverBanner");
+
+      const statusLine = document.getElementById("statusLine");
+      const turnText = document.getElementById("turnText");
+      const debugText = document.getElementById("debugText");
+
+      const webcamEl = document.getElementById("webcam");
+      const handCanvas = document.getElementById("handCanvas");
+      const handCtx = handCanvas.getContext("2d");
+
+      let hands = null;
+      let camera = null;
+      let animationRunning = false;
+
+      const state = {
+        board: createInitialBoard(),
+        turn: "w",
+        cameraOn: false,
+        hoveredSquare: null,
+        validTargets: [],
+        selectableSquares: [],
+        forcedCaptureSquares: [],
+        mandatoryCapture: false,
+        gameOver: false,
+        gameOverText: "",
+        multiCapture: {
+          active: false,
+          piece: null
+        },
+        drag: {
+          active: false,
+          from: null,
+          piece: null,
+          offsetX: 0,
+          offsetY: 0
+        },
+        tracking: {
+          rawX: null,
+          rawY: null,
+          smoothX: null,
+          smoothY: null,
+          pinchDistance: Infinity,
+          pinch: false,
+          prevPinch: false,
+          handDetected: false,
+          rawHandDetected: false,
+          lastSeenTs: 0
+        }
+      };
+
+      function createInitialBoard() {
+        const board = Array.from({ length: 8 }, () => Array(8).fill(null));
+        for (let row = 0; row < 3; row += 1) {
+          for (let col = 0; col < 8; col += 1) {
+            if ((row + col) % 2 === 1) board[row][col] = "bM";
+          }
+        }
+        for (let row = 5; row < 8; row += 1) {
+          for (let col = 0; col < 8; col += 1) {
+            if ((row + col) % 2 === 1) board[row][col] = "wM";
+          }
+        }
+        return board;
+      }
+
+      function initBoardDom() {
+        const frag = document.createDocumentFragment();
+        for (let row = 0; row < 8; row += 1) {
+          for (let col = 0; col < 8; col += 1) {
+            const square = document.createElement("div");
+            square.className = "square " + (((row + col) % 2 === 0) ? "light" : "dark");
+            square.dataset.row = String(row);
+            square.dataset.col = String(col);
+
+            const pieceEl = document.createElement("span");
+            pieceEl.className = "piece";
+
+            square.appendChild(pieceEl);
+            frag.appendChild(square);
+          }
+        }
+        boardEl.innerHTML = "";
+        boardEl.appendChild(frag);
+
+        if (coordsBottomEl) {
+          coordsBottomEl.innerHTML = "";
+          FILES.forEach((file) => {
+            const label = document.createElement("span");
+            label.textContent = file;
+            coordsBottomEl.appendChild(label);
+          });
+        }
+
+        if (coordsLeftEl) {
+          coordsLeftEl.innerHTML = "";
+          for (let row = 0; row < 8; row += 1) {
+            const label = document.createElement("span");
+            label.textContent = String(8 - row);
+            coordsLeftEl.appendChild(label);
+          }
+        }
+      }
+
+      function inBounds(row, col) {
+        return row >= 0 && row < 8 && col >= 0 && col < 8;
+      }
+
+      function isDarkSquare(row, col) {
+        return (row + col) % 2 === 1;
+      }
+
+      function pieceColor(piece) {
+        return piece ? piece[0] : null;
+      }
+
+      function isKing(piece) {
+        return piece ? piece[1] === "K" : false;
+      }
+
+      function opponentColor(color) {
+        return color === "w" ? "b" : "w";
+      }
+
+      function sideName(color) {
+        return color === "w" ? "Oq" : "Qora";
+      }
+
+      function pieceName(piece) {
+        if (!piece) return "-";
+        const side = pieceColor(piece) === "w" ? "oq" : "qora";
+        return side + " " + (isKing(piece) ? "shoh" : "oddiy");
+      }
+
+      function squareToCoord(row, col) {
+        if (!inBounds(row, col)) return "-";
+        return FILES[col] + String(8 - row);
+      }
+
+      function moveKey(row, col) {
+        return row + "," + col;
+      }
+
+      function boardSizePx() {
+        return boardEl.getBoundingClientRect().width;
+      }
+
+      function clamp(n, min, max) {
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function mapNormalizedToBoard(normValue, center, range) {
+        const half = range / 2;
+        const min = center - half;
+        return clamp((normValue - min) / range, 0, 1);
+      }
+
+      function cursorToSquare(x, y) {
+        const size = boardSizePx();
+        const cell = size / 8;
+        const col = clamp(Math.floor(x / cell), 0, 7);
+        const row = clamp(Math.floor(y / cell), 0, 7);
+        return { row, col };
+      }
+
+      function setPieceVisual(el, piece) {
+        if (!el) return;
+
+        el.className = "piece";
+        if (!piece) return;
+
+        el.classList.add("has-piece");
+        el.classList.add(pieceColor(piece) === "w" ? "white" : "black");
+        if (isKing(piece)) el.classList.add("king");
+      }
+
+      function getForwardDirections(piece) {
+        const color = pieceColor(piece);
+        if (isKing(piece)) return ALL_DIAGONALS;
+
+        return color === "w"
+          ? [[-1, -1], [-1, 1]]
+          : [[1, -1], [1, 1]];
+      }
+
+      function getKingSimpleMovesOnBoard(board, row, col) {
+        const moves = [];
+
+        ALL_DIAGONALS.forEach(([dr, dc]) => {
+          let nextRow = row + dr;
+          let nextCol = col + dc;
+
+          while (inBounds(nextRow, nextCol)) {
+            if (!isDarkSquare(nextRow, nextCol)) break;
+            if (board[nextRow][nextCol] !== null) break;
+
+            moves.push({ row: nextRow, col: nextCol, capture: null });
+            nextRow += dr;
+            nextCol += dc;
+          }
+        });
+
+        return moves;
+      }
+
+      function getKingCaptureMovesOnBoard(board, row, col) {
+        const piece = board[row][col];
+        if (!piece) return [];
+
+        const moves = [];
+        const color = pieceColor(piece);
+
+        ALL_DIAGONALS.forEach(([dr, dc]) => {
+          let nextRow = row + dr;
+          let nextCol = col + dc;
+          let capturedEnemy = null;
+
+          while (inBounds(nextRow, nextCol)) {
+            if (!isDarkSquare(nextRow, nextCol)) break;
+
+            const cell = board[nextRow][nextCol];
+
+            if (!capturedEnemy) {
+              if (cell === null) {
+                nextRow += dr;
+                nextCol += dc;
+                continue;
+              }
+
+              if (pieceColor(cell) === color) break;
+
+              capturedEnemy = { row: nextRow, col: nextCol };
+              nextRow += dr;
+              nextCol += dc;
+              continue;
+            }
+
+            if (cell === null) {
+              moves.push({
+                row: nextRow,
+                col: nextCol,
+                capture: { row: capturedEnemy.row, col: capturedEnemy.col }
+              });
+              nextRow += dr;
+              nextCol += dc;
+              continue;
+            }
+
+            break;
+          }
+        });
+
+        return moves;
+      }
+
+      function getSimpleMovesOnBoard(board, row, col) {
+        if (!inBounds(row, col)) return [];
+        const piece = board[row][col];
+        if (!piece) return [];
+
+        if (isKing(piece)) {
+          return getKingSimpleMovesOnBoard(board, row, col);
+        }
+
+        const moves = [];
+        const dirs = getForwardDirections(piece);
+
+        dirs.forEach(([dr, dc]) => {
+          const nextRow = row + dr;
+          const nextCol = col + dc;
+          if (!inBounds(nextRow, nextCol)) return;
+          if (!isDarkSquare(nextRow, nextCol)) return;
+          if (board[nextRow][nextCol] === null) {
+            moves.push({ row: nextRow, col: nextCol, capture: null });
+          }
+        });
+
+        return moves;
+      }
+
+      function getCaptureMovesOnBoard(board, row, col) {
+        if (!inBounds(row, col)) return [];
+        const piece = board[row][col];
+        if (!piece) return [];
+
+        if (isKing(piece)) {
+          return getKingCaptureMovesOnBoard(board, row, col);
+        }
+
+        const moves = [];
+        const color = pieceColor(piece);
+        const dirs = getForwardDirections(piece);
+
+        dirs.forEach(([dr, dc]) => {
+          const enemyRow = row + dr;
+          const enemyCol = col + dc;
+          const landRow = row + (dr * 2);
+          const landCol = col + (dc * 2);
+
+          if (!inBounds(enemyRow, enemyCol) || !inBounds(landRow, landCol)) return;
+          if (!isDarkSquare(landRow, landCol)) return;
+
+          const enemyPiece = board[enemyRow][enemyCol];
+          const landingPiece = board[landRow][landCol];
+
+          if (enemyPiece && pieceColor(enemyPiece) !== color && landingPiece === null) {
+            moves.push({
+              row: landRow,
+              col: landCol,
+              capture: { row: enemyRow, col: enemyCol }
+            });
+          }
+        });
+
+        return moves;
+      }
+
+      function getTurnAnalysis(board, color) {
+        const captureSources = [];
+        const movableSources = [];
+
+        for (let row = 0; row < 8; row += 1) {
+          for (let col = 0; col < 8; col += 1) {
+            const piece = board[row][col];
+            if (!piece || pieceColor(piece) !== color) continue;
+
+            const captures = getCaptureMovesOnBoard(board, row, col);
+            if (captures.length > 0) {
+              captureSources.push({ row, col });
+              continue;
+            }
+
+            const simpleMoves = getSimpleMovesOnBoard(board, row, col);
+            if (simpleMoves.length > 0) {
+              movableSources.push({ row, col });
+            }
+          }
+        }
+
+        const mandatoryCapture = captureSources.length > 0;
+        const selectableSquares = mandatoryCapture ? captureSources : movableSources;
+
+        return {
+          mandatoryCapture,
+          selectableSquares,
+          forcedCaptureSquares: captureSources,
+          hasAnyMoves: selectableSquares.length > 0
+        };
+      }
+
+      function countPieces(color, board = state.board) {
+        let total = 0;
+        for (let row = 0; row < 8; row += 1) {
+          for (let col = 0; col < 8; col += 1) {
+            const piece = board[row][col];
+            if (piece && pieceColor(piece) === color) total += 1;
+          }
+        }
+        return total;
+      }
+
+      function hasAnyMoves(color, board = state.board) {
+        for (let row = 0; row < 8; row += 1) {
+          for (let col = 0; col < 8; col += 1) {
+            const piece = board[row][col];
+            if (!piece || pieceColor(piece) !== color) continue;
+            if (getCaptureMovesOnBoard(board, row, col).length > 0) return true;
+            if (getSimpleMovesOnBoard(board, row, col).length > 0) return true;
+          }
+        }
+        return false;
+      }
+
+      function updateGameOverUi() {
+        boardWrap.classList.toggle("game-over", state.gameOver);
+
+        if (!gameOverBannerEl) return;
+        if (state.gameOver) {
+          gameOverBannerEl.textContent = state.gameOverText;
+          gameOverBannerEl.classList.remove("hidden");
+        } else {
+          gameOverBannerEl.textContent = "";
+          gameOverBannerEl.classList.add("hidden");
+        }
+      }
+
+      function clearSelectionState() {
+        state.validTargets = [];
+        state.selectableSquares = [];
+        state.forcedCaptureSquares = [];
+        state.mandatoryCapture = false;
+      }
+
+      function refreshTurnState() {
+        if (state.gameOver) {
+          clearSelectionState();
+          state.multiCapture.active = false;
+          state.multiCapture.piece = null;
+          updateGameOverUi();
+          return;
+        }
+
+        const whiteCount = countPieces("w");
+        const blackCount = countPieces("b");
+
+        if (whiteCount === 0 || blackCount === 0) {
+          state.gameOver = true;
+          const winner = whiteCount > 0 ? "w" : "b";
+          const loser = opponentColor(winner);
+          state.gameOverText = "O‘yin tugadi!\n" + sideName(winner) + " g‘alaba qozondi.\n" + sideName(loser) + " donalari qolmadi.";
+          clearSelectionState();
+          state.multiCapture.active = false;
+          state.multiCapture.piece = null;
+          updateGameOverUi();
+          return;
+        }
+
+        if (state.multiCapture.active && state.multiCapture.piece) {
+          const chainPos = state.multiCapture.piece;
+          const chainPiece = inBounds(chainPos.row, chainPos.col) ? state.board[chainPos.row][chainPos.col] : null;
+
+          if (!chainPiece || pieceColor(chainPiece) !== state.turn) {
+            state.multiCapture.active = false;
+            state.multiCapture.piece = null;
+          } else {
+            const chainMoves = getCaptureMovesOnBoard(state.board, chainPos.row, chainPos.col);
+            if (chainMoves.length > 0) {
+              state.mandatoryCapture = true;
+              state.selectableSquares = [{ row: chainPos.row, col: chainPos.col }];
+              state.forcedCaptureSquares = [{ row: chainPos.row, col: chainPos.col }];
+              updateGameOverUi();
+              return;
+            }
+            state.multiCapture.active = false;
+            state.multiCapture.piece = null;
+            state.turn = opponentColor(state.turn);
+          }
+        }
+
+        const analysis = getTurnAnalysis(state.board, state.turn);
+        state.mandatoryCapture = analysis.mandatoryCapture;
+        state.selectableSquares = analysis.selectableSquares;
+        state.forcedCaptureSquares = analysis.forcedCaptureSquares;
+
+        if (!analysis.hasAnyMoves || !hasAnyMoves(state.turn, state.board)) {
+          const winner = opponentColor(state.turn);
+          state.gameOver = true;
+          state.gameOverText = "O‘yin tugadi!\n" + sideName(winner) + " g‘alaba qozondi.\n" + sideName(state.turn) + " yurishga ega emas.";
+          clearSelectionState();
+          state.multiCapture.active = false;
+          state.multiCapture.piece = null;
+        } else {
+          state.gameOver = false;
+          state.gameOverText = "";
+        }
+
+        updateGameOverUi();
+      }
+
+      function getLegalMoves(fromRow, fromCol) {
+        if (!inBounds(fromRow, fromCol)) return [];
+        const piece = state.board[fromRow][fromCol];
+        if (!piece || state.gameOver) return [];
+        if (pieceColor(piece) !== state.turn) return [];
+        if (!isDarkSquare(fromRow, fromCol)) return [];
+
+        if (state.multiCapture.active && state.multiCapture.piece) {
+          if (state.multiCapture.piece.row !== fromRow || state.multiCapture.piece.col !== fromCol) {
+            return [];
+          }
+          return getCaptureMovesOnBoard(state.board, fromRow, fromCol);
+        }
+
+        const captures = getCaptureMovesOnBoard(state.board, fromRow, fromCol);
+        if (state.mandatoryCapture) return captures;
+
+        const simple = getSimpleMovesOnBoard(state.board, fromRow, fromCol);
+        return captures.concat(simple);
+      }
+
+      function findMatchingTarget(targets, row, col) {
+        return targets.find((m) => m.row === row && m.col === col) || null;
+      }
+
+      function startGrab() {
+        if (state.gameOver || !state.tracking.handDetected || state.drag.active) return;
+        if (state.tracking.smoothX == null || state.tracking.smoothY == null) return;
+
+        const { row, col } = cursorToSquare(state.tracking.smoothX, state.tracking.smoothY);
+        const piece = state.board[row][col];
+        if (!piece || pieceColor(piece) !== state.turn) return;
+
+        const legal = getLegalMoves(row, col);
+        if (legal.length === 0) return;
+
+        state.validTargets = legal;
+        state.drag.active = true;
+        state.drag.from = { row, col };
+        state.drag.piece = piece;
+
+        const cell = boardSizePx() / 8;
+        const centerX = (col + 0.5) * cell;
+        const centerY = (row + 0.5) * cell;
+        state.drag.offsetX = centerX - state.tracking.smoothX;
+        state.drag.offsetY = centerY - state.tracking.smoothY;
+      }
+
+      function cancelGrab() {
+        state.drag.active = false;
+        state.drag.from = null;
+        state.drag.piece = null;
+        state.drag.offsetX = 0;
+        state.drag.offsetY = 0;
+        state.validTargets = [];
+      }
+
+      function switchTurn() {
+        state.turn = state.turn === "w" ? "b" : "w";
+      }
+
+      function commitMove(from, move) {
+        const movingPiece = state.board[from.row][from.col];
+        if (!movingPiece) return;
+
+        state.board[from.row][from.col] = null;
+
+        if (move.capture) {
+          state.board[move.capture.row][move.capture.col] = null;
+        }
+
+        let placedPiece = movingPiece;
+        if (movingPiece === "wM" && move.row === 0) {
+          placedPiece = "wK";
+        } else if (movingPiece === "bM" && move.row === 7) {
+          placedPiece = "bK";
+        }
+
+        state.board[move.row][move.col] = placedPiece;
+
+        const wasCapture = Boolean(move.capture);
+        if (wasCapture) {
+          const nextCaptures = getCaptureMovesOnBoard(state.board, move.row, move.col);
+          if (nextCaptures.length > 0) {
+            state.multiCapture.active = true;
+            state.multiCapture.piece = { row: move.row, col: move.col };
+          } else {
+            state.multiCapture.active = false;
+            state.multiCapture.piece = null;
+            switchTurn();
+          }
+        } else {
+          state.multiCapture.active = false;
+          state.multiCapture.piece = null;
+          switchTurn();
+        }
+
+        refreshTurnState();
+      }
+
+      function dropGrab() {
+        if (!state.drag.active || !state.drag.from) return;
+        if (state.gameOver) {
+          cancelGrab();
+          return;
+        }
+        if (state.tracking.smoothX == null || state.tracking.smoothY == null) {
+          cancelGrab();
+          return;
+        }
+
+        const from = state.drag.from;
+        const to = cursorToSquare(state.tracking.smoothX, state.tracking.smoothY);
+        const selectedMove = findMatchingTarget(state.validTargets, to.row, to.col);
+
+        if (selectedMove) {
+          commitMove(from, selectedMove);
+        }
+
+        cancelGrab();
+      }
+
+      function updateStatusLine() {
+        const handText = state.tracking.handDetected ? "aniqlandi" : "aniqlanmadi";
+        const pinchText = state.tracking.pinch ? "BOR" : "YO‘Q";
+        const cameraText = state.cameraOn ? "YOQILDI" : "O‘CHIQLI";
+
+        let modeText = "Erkin yurish";
+        if (state.gameOver) {
+          modeText = "O‘yin tugadi";
+        } else if (state.multiCapture.active && state.multiCapture.piece) {
+          const p = state.multiCapture.piece;
+          modeText = "Ketma-ket urish: " + squareToCoord(p.row, p.col) + " donasi davom etadi";
+        } else if (state.mandatoryCapture) {
+          modeText = "Majburiy urish mavjud";
+        }
+
+        statusLine.textContent = "Kamera: " + cameraText + " | Qo‘l: " + handText + " | Chimchish: " + pinchText + " | Holat: " + modeText;
+
+        let turnHint = "Navbat: " + sideName(state.turn);
+        if (!state.gameOver && state.multiCapture.active && state.multiCapture.piece) {
+          turnHint += " | Shu dona bilan urishni davom ettiring";
+        } else if (!state.gameOver && state.mandatoryCapture) {
+          turnHint += " | Majburiy urish";
+        }
+        turnText.textContent = turnHint;
+      }
+
+      function updateDebugPanel() {
+        const t = state.tracking;
+        const fmt = (v, d = 2) => (typeof v === "number" && Number.isFinite(v)) ? v.toFixed(d) : "-";
+        const distText = Number.isFinite(t.pinchDistance) ? t.pinchDistance.toFixed(5) : "-";
+
+        const hovered = state.hoveredSquare
+          ? squareToCoord(state.hoveredSquare.row, state.hoveredSquare.col)
+          : "-";
+
+        const selectedPiece = state.drag.active
+          ? state.drag.piece
+          : (state.hoveredSquare ? state.board[state.hoveredSquare.row][state.hoveredSquare.col] : null);
+
+        const chainText = state.multiCapture.active && state.multiCapture.piece
+          ? "HA (" + squareToCoord(state.multiCapture.piece.row, state.multiCapture.piece.col) + ")"
+          : "YO‘Q";
+
+        debugText.textContent = [
+          "qo‘l aniqlandi: " + String(t.handDetected),
+          "xomX/xomY: " + fmt(t.rawX, 1) + " / " + fmt(t.rawY, 1),
+          "silliqX/silliqY: " + fmt(t.smoothX, 1) + " / " + fmt(t.smoothY, 1),
+          "chimchish masofasi: " + distText,
+          "chimchish holati: " + String(t.pinch),
+          "navbat: " + sideName(state.turn),
+          "ustidagi katak: " + hovered,
+          "majburiy urish: " + (state.mandatoryCapture ? "HA" : "YO‘Q"),
+          "ketma-ket urish zanjiri: " + chainText,
+          "ushlangan dona: " + pieceName(state.drag.piece),
+          "tanlangan dona shohmi: " + (isKing(selectedPiece) ? "HA" : "YO‘Q"),
+          "oq dona soni: " + countPieces("w"),
+          "qora dona soni: " + countPieces("b")
+        ].join("\n");
+      }
+
+      function updateCursorAndHover(nowTs) {
+        const t = state.tracking;
+
+        t.handDetected = (nowTs - t.lastSeenTs) < 260;
+        if (!t.handDetected) {
+          t.pinch = false;
+        }
+
+        const size = boardSizePx();
+        if (size <= 0) return;
+
+        if (typeof t.rawX === "number" && typeof t.rawY === "number") {
+          if (t.smoothX == null || t.smoothY == null) {
+            t.smoothX = t.rawX;
+            t.smoothY = t.rawY;
+          } else {
+            const dx = t.rawX - t.smoothX;
+            const dy = t.rawY - t.smoothY;
+            const movement = Math.hypot(dx, dy);
+            const alpha = movement > FAST_MOVE_PX ? FAST_SMOOTH_ALPHA : BASE_SMOOTH_ALPHA;
+            if (Math.abs(dx) >= DEADZONE_PX) t.smoothX += dx * alpha;
+            if (Math.abs(dy) >= DEADZONE_PX) t.smoothY += dy * alpha;
+          }
+        }
+
+        if (t.smoothX != null && t.smoothY != null) {
+          t.smoothX = clamp(t.smoothX, 0, size - 1);
+          t.smoothY = clamp(t.smoothY, 0, size - 1);
+          state.hoveredSquare = cursorToSquare(t.smoothX, t.smoothY);
+
+          cursorEl.style.left = t.smoothX + "px";
+          cursorEl.style.top = t.smoothY + "px";
+        }
+
+        cursorEl.classList.toggle("pinch", t.pinch);
+        cursorEl.classList.toggle("faded", !t.handDetected);
+
+        if (state.drag.active && state.drag.piece && t.smoothX != null && t.smoothY != null) {
+          dragPieceEl.style.display = "grid";
+          dragPieceEl.style.left = (t.smoothX + state.drag.offsetX) + "px";
+          dragPieceEl.style.top = (t.smoothY + state.drag.offsetY) + "px";
+          setPieceVisual(dragPieceEl, state.drag.piece);
+        } else {
+          dragPieceEl.style.display = "none";
+          setPieceVisual(dragPieceEl, null);
+        }
+      }
+
+      function renderBoard() {
+        const hoveredKey = state.hoveredSquare ? moveKey(state.hoveredSquare.row, state.hoveredSquare.col) : null;
+        const validSet = new Set(state.validTargets.map((m) => moveKey(m.row, m.col)));
+        const selectableSet = new Set(state.selectableSquares.map((s) => moveKey(s.row, s.col)));
+        const forcedSet = new Set(state.forcedCaptureSquares.map((s) => moveKey(s.row, s.col)));
+        const chainKey = state.multiCapture.active && state.multiCapture.piece
+          ? moveKey(state.multiCapture.piece.row, state.multiCapture.piece.col)
+          : null;
+
+        boardEl.querySelectorAll(".square").forEach((sq) => {
+          const row = Number(sq.dataset.row);
+          const col = Number(sq.dataset.col);
+          const key = moveKey(row, col);
+          const pieceSpan = sq.querySelector(".piece");
+          const piece = state.board[row][col];
+
+          const hiddenByDrag = state.drag.active && state.drag.from && state.drag.from.row === row && state.drag.from.col === col;
+          setPieceVisual(pieceSpan, hiddenByDrag ? null : piece);
+
+          sq.classList.toggle("hovered", hoveredKey === key);
+          sq.classList.toggle("grabbed-origin", Boolean(state.drag.active && state.drag.from && state.drag.from.row === row && state.drag.from.col === col));
+          sq.classList.toggle("valid-target", validSet.has(key));
+          sq.classList.toggle("selectable", selectableSet.has(key));
+          sq.classList.toggle("forced-capture", forcedSet.has(key));
+          sq.classList.toggle("chain-piece", chainKey === key);
+        });
+      }
+
+      function onHandResults(results) {
+        handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
+
+        if (results.image) {
+          handCtx.drawImage(results.image, 0, 0, handCanvas.width, handCanvas.height);
+        }
+
+        const landmarks = results.multiHandLandmarks && results.multiHandLandmarks[0];
+        if (!landmarks) {
+          state.tracking.rawHandDetected = false;
+          state.tracking.pinchDistance = Infinity;
+          return;
+        }
+
+        state.tracking.rawHandDetected = true;
+        state.tracking.lastSeenTs = performance.now();
+
+        const indexTip = landmarks[8];
+        const thumbTip = landmarks[4];
+
+        const size = boardSizePx();
+        if (size > 0) {
+          // Coordinate mapping from normalized camera space [0..1] to board-local pixels:
+          // A reduced effective input range gives higher control sensitivity
+          // so smaller hand movement can cover the full board.
+          const mappedNormX = mapNormalizedToBoard(indexTip.x, INPUT_CENTER_X, INPUT_RANGE_X);
+          const mappedNormY = mapNormalizedToBoard(indexTip.y, INPUT_CENTER_Y, INPUT_RANGE_Y);
+          // x_screen = (1 - x_norm) * boardWidth   (mirrored for natural feel)
+          // y_screen = y_norm * boardHeight
+          const rawX = (1 - mappedNormX) * size;
+          const rawY = mappedNormY * size;
+          state.tracking.rawX = rawX;
+          state.tracking.rawY = rawY;
+        }
+
+        // Pinch detection in normalized coordinates using hysteresis:
+        // pinch ON  when distance < 0.035
+        // pinch OFF when distance > 0.050
+        const pinchDist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+        state.tracking.pinchDistance = pinchDist;
+
+        if (!state.tracking.pinch && pinchDist < PINCH_ON) {
+          state.tracking.pinch = true;
+        } else if (state.tracking.pinch && pinchDist > PINCH_OFF) {
+          state.tracking.pinch = false;
+        }
+
+        if (window.drawConnectors && window.drawLandmarks && window.HAND_CONNECTIONS) {
+          drawConnectors(handCtx, landmarks, HAND_CONNECTIONS, { color: "#00ff85", lineWidth: 2 });
+          drawLandmarks(handCtx, landmarks, { color: "#ff2d55", radius: 2, lineWidth: 1 });
+        }
+      }
+
+      function updateInteractionTransitions() {
+        const pinch = state.tracking.pinch;
+        const prev = state.tracking.prevPinch;
+
+        if (state.gameOver) {
+          if (state.drag.active) {
+            cancelGrab();
+          }
+          state.tracking.prevPinch = pinch;
+          return;
+        }
+
+        if (pinch && !prev) {
+          startGrab();
+        }
+
+        if (!pinch && prev) {
+          if (state.drag.active) {
+            if (state.tracking.handDetected) {
+              dropGrab();
+            } else {
+              cancelGrab();
+            }
+          }
+        }
+
+        state.tracking.prevPinch = pinch;
+      }
+
+      function animationLoop(ts) {
+        if (!state.cameraOn) {
+          animationRunning = false;
+          return;
+        }
+
+        updateCursorAndHover(ts);
+        updateInteractionTransitions();
+        renderBoard();
+        updateStatusLine();
+        updateDebugPanel();
+
+        requestAnimationFrame(animationLoop);
+      }
+
+      async function enableCamera() {
+        startError.textContent = "";
+
+        if (!window.Hands || !window.Camera) {
+          startError.textContent = "MediaPipe yuklanmadi. Iltimos, internet aloqasini tekshirib, sahifani qayta yuklang.";
+          return;
+        }
+
+        enableCameraBtn.disabled = true;
+
+        try {
+          hands = new Hands({
+            locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+          });
+
+          hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.55,
+            minTrackingConfidence: 0.5
+          });
+
+          hands.onResults(onHandResults);
+
+          camera = new Camera(webcamEl, {
+            onFrame: async () => {
+              await hands.send({ image: webcamEl });
+            },
+            width: 640,
+            height: 480
+          });
+
+          await camera.start();
+
+          state.cameraOn = true;
+          startScreen.classList.add("hidden");
+          gameScreen.classList.remove("hidden");
+          videoOverlay.classList.remove("hidden");
+
+          if (!animationRunning) {
+            animationRunning = true;
+            requestAnimationFrame(animationLoop);
+          }
+        } catch (err) {
+          enableCameraBtn.disabled = false;
+          startError.textContent = "Kameraga ulanish amalga oshmadi. Iltimos, kameraga ruxsat bering va https yoki localhost orqali ishga tushiring.";
+        }
+      }
+
+      function boot() {
+        initBoardDom();
+        refreshTurnState();
+        renderBoard();
+        updateStatusLine();
+        updateDebugPanel();
+        enableCameraBtn.addEventListener("click", enableCamera);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
