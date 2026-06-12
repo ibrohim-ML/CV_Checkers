@@ -96,13 +96,6 @@ The game runs a fixed-timestep animation loop (`requestAnimationFrame`) that:
 5. Computes legal moves including mandatory captures and multi-jumps
 6. Renders the board, cursor, drag ghost, and UI overlays
 
----
-
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
----
 
 <br>
 
@@ -161,8 +154,3 @@ python -m http.server 8000
 
 Brauzerda **http://localhost:8000** ni oching.
 
----
-
-## 📄 Litsenziya
-
-MIT
